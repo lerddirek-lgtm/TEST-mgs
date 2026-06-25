@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Color Concentration Analyzer</title>
+
+<style>
+body{
+font-family: Arial, sans-serif;
+text-align: center;
+background: #f4f6f8;
+padding: 15px;
+}
+h2{ color:#222; }
+button, input, select{
+padding:10px 14px;
+margin:6px;
+font-size:16px;
+}
+video, canvas{
+width:340px;
+max-width:95%;
+border:2px solid #999;
+border-radius:12px;
+background:white;
+}
+.result{
+background:white;
+margin-top:12px;
+padding:12px;
+border-radius:12px;
+}
+.small{
+font-size:14px;
+color:#555;
+}
+
+.cameraBtn{
+display:inline-block;
+padding:10px 20px;
+background:#4CAF50;
+color:white;
+border-radius:10px;
+cursor:pointer;
+margin:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>ระบบวิเคราะห์ความเข้มข้นจากสี</h2>
+<h3>เลือกประเภทตัวอย่าง</h3>
+
+<select id="sampleType" onchange="selectType(this.value)">
+<option value="stick">ไม้จิ้มทดสอบ</option>
+<option value="paper">กระดาษทดสอบ</option>
+<option value="solution">สารละลายทดสอบ</option>
+</select>
+
+<p id="selectedType">ประเภทที่เลือก : ไม้จิ้มทดสอบ</p>
+<label for="cameraInput" class="cameraBtn">
+ถ่ายรูปจากกล้อง
+</label>
+
+<input
+id="cameraInput"
+type="file"
+accept="image/*"
+capture="environment"
+onchange="loadImage(event)"
+hidden>
+
+<p>หรือเลือกรูปจากคลังภาพ</p>
+
+<input
+type="file"
+accept="image/*"
+onchange="loadImage(event)">
+
+<p class="small">หลังถ่ายหรือเลือกรูปแล้ว ให้แตะบริเวณสีที่ต้องการวัด</p>
+
+<canvas id="canvas" width="340" height="255"></canvas>
+
+<div class="result">
+<p id="conc">ความเข้มข้น : -</p>
+</div>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let currentImage = null;
+let selectedX = null;
+let selectedY = null;
+
+let currentType = "stick";
+
+const databases = {
+stick:[
+{ light:83.6, concentration:10.0 },
+{ light:81.7, concentration:9.0 },
+{ light:79.8, concentration:8.0 },
+{ light:77.98, concentration:7.0 },
+{ light:76, concentration:6.0 },
+{ light:74.2, concentration:5.0 },
+{ light:72.3, concentration:4.0 },
+{ light:70.4, concentration:3.0 },
+{ light:68.5, concentration:2.0 },
+{ light:66.6, concentration:1.0 },
+{ light:66.4, concentration:0.9 },
+{ light:66.2, concentration:0.8 },
+{ light:66, concentration:0.7 },
+{ light:65.8, concentration:0.6 },
+{ light:65.7, concentration:0.5 },
+{ light:65.5, concentration:0.4 },
+{ light:65.3, concentration:0.3 },
+{ light:65.1, concentration:0.2 },
+{ light:64.99, concentration:0.1 }
+],
+
+paper:[
+{ light:84, concentration:10.0 },
+{ light:83.2, concentration:9.0 },
+{ light:82.4, concentration:8.0 },
+{ light:81.6, concentration:7.0 },
+{ light:80.8, concentration:6.0 },
+{ light:80.1, concentration:5.0 },
+{ light:79.3, concentration:4.0 },
+{ light:78.5, concentration:3.0 },
+{ light:77.7, concentration:2.0 },
+{ light:76.9, concentration:1.0 },
+{ light:76.8, concentration:0.9 },
+{ light:76.7, concentration:0.8 },
+{ light:76.5, concentration:0.7 },
+{ light:76.4, concentration:0.6 },
+{ light:76.4, concentration:0.5 },
+{ light:76.3, concentration:0.4 },
+{ light:76.3, concentration:0.3 },
+{ light:76.3, concentration:0.2 },
+{ light:76.2, concentration:0.1 }
+],
+
+solution:[
+{ light:99.3, concentration:10.0 },
+{ light:98.6, concentration:9.0 },
+{ light:97.9, concentration:8.0 },
+{ light:97.2, concentration:7.0 },
+{ light:96.5, concentration:6.0 },
+{ light:95.8, concentration:5.0 },
+{ light:95.1, concentration:4.0 },
+{ light:94.4, concentration:3.0 },
+{ light:93.8, concentration:2.0 },
+{ light:93.7, concentration:1.0 },
+{ light:93, concentration:0.9 },
+{ light:92.9, concentration:0.8 },
+{ light:92.8, concentration:0.7 },
+{ light:92.7, concentration:0.6 },
+{ light:92.7, concentration:0.5 },
+{ light:92.6, concentration:0.4 },
+{ light:92.5, concentration:0.3 },
+{ light:92.4, concentration:0.2 },
+{ light:92.3, concentration:0.1 }
+]
+};
+
+function selectType(type){
+currentType = type;
+
+const names = {
+stick:"ไม้จิ้มทดสอบ",
+paper:"กระดาษทดสอบ",
+solution:"สารละลายทดสอบ"
+};
+
+document.getElementById("selectedType").innerHTML =
+"ประเภทที่เลือก : " + names[type];
+}
+
+function captureImage(){
+ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+currentImage = new Image();
+currentImage.src = canvas.toDataURL();
+
+document.getElementById("conc").innerHTML =
+"ถ่ายภาพแล้ว กรุณาแตะจุดที่ต้องการวัด";
+}
+
+function loadImage(event){
+const file = event.target.files[0];
+if(!file) return;
+
+const img = new Image();
+
+img.onload = function(){
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+currentImage = img;
+
+document.getElementById("conc").innerHTML =
+"เลือกรูปแล้ว กรุณาแตะจุดที่ต้องการวัด";
+};
+
+img.src = URL.createObjectURL(file);
+}
+
+// แตะหรือคลิกบนรูปเพื่อเลือกตำแหน่งวัดสี
+canvas.addEventListener("click", function(event){
+const rect = canvas.getBoundingClientRect();
+
+selectedX = Math.round((event.clientX - rect.left) * (canvas.width / rect.width));
+selectedY = Math.round((event.clientY - rect.top) * (canvas.height / rect.height));
+
+analyzeSelectedArea(selectedX, selectedY);
+});
+
+canvas.addEventListener("touchstart", function(event){
+event.preventDefault();
+
+const rect = canvas.getBoundingClientRect();
+const touch = event.touches[0];
+
+selectedX = Math.round((touch.clientX - rect.left) * (canvas.width / rect.width));
+selectedY = Math.round((touch.clientY - rect.top) * (canvas.height / rect.height));
+
+analyzeSelectedArea(selectedX, selectedY);
+});
+
+function analyzeSelectedArea(x, y){
+if(currentImage){
+ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+}
+
+const sampleSize = 30;
+const half = sampleSize / 2;
+
+let startX = Math.max(0, x - half);
+let startY = Math.max(0, y - half);
+
+if(startX + sampleSize > canvas.width){
+startX = canvas.width - sampleSize;
+}
+
+if(startY + sampleSize > canvas.height){
+startY = canvas.height - sampleSize;
+}
+
+const imageData = ctx.getImageData(startX, startY, sampleSize, sampleSize);
+const data = imageData.data;
+
+let totalR = 0;
+let totalG = 0;
+let totalB = 0;
+let pixels = 0;
+
+for(let i = 0; i < data.length; i += 4){
+totalR += data[i];
+totalG += data[i + 1];
+totalB += data[i + 2];
+pixels++;
+}
+
+const avgR = totalR / pixels;
+const avgG = totalG / pixels;
+const avgB = totalB / pixels;
+
+const brightness =
+(0.299 * avgR) +
+(0.587 * avgG) +
+(0.114 * avgB);
+
+const concentration = findClosestConcentration(brightness);
+
+// วาดกรอบตรงบริเวณที่เลือก
+ctx.strokeStyle = "red";
+ctx.lineWidth = 3;
+ctx.strokeRect(startX, startY, sampleSize, sampleSize);
+
+ctx.beginPath();
+ctx.arc(x, y, 5, 0, 2 * Math.PI);
+ctx.fillStyle = "red";
+ctx.fill();
+
+document.getElementById("conc").innerHTML =
+"ความเข้มข้น : " + concentration + "%";
+}
+
+function findClosestConcentration(lightValue){
+const database = databases[currentType];
+let closest = database[0];
+
+for(let i = 1; i < database.length; i++){
+if(
+Math.abs(database[i].light - lightValue) <
+Math.abs(closest.light - lightValue)
+){
+closest = database[i];
+}
+}
+
+return closest.concentration;
+}
+</script>
+"ขออภัยในความไม่สะดวก ขณะนี้ระบบอยู่ในช่วงปิดปรับปรุงกรุณาลองใหม่อีกครั้งภายหลัง ระบบจะกลับมาใช้งานได้ตามปกติในเร็ว ๆ นี้"
+</body>
+</html>
