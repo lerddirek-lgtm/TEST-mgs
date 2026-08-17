@@ -31,10 +31,6 @@ video, canvas {
   padding: 12px;
   border-radius: 12px;
 }
-.result p {
-  margin: 8px 0;
-  font-weight: bold;
-}
 .small {
   font-size: 14px;
   color: #555;
@@ -113,36 +109,69 @@ const ctx = canvas.getContext("2d");
 let currentImage = null;
 let currentType = "stick";
 
-// ปรับโครงสร้างข้อมูลให้กำหนดช่วง minLight และ maxLight
 const databases = {
   stick: [
-    { minLight: 80.0, maxLight: 90.0, concentration: 10.0 }, // กำหนดช่วง 80 - 90
-    { minLight: 78.5, maxLight: 79.9, concentration: 9.0 },
-    { minLight: 77.0, maxLight: 78.4, concentration: 8.0 },
-    { minLight: 75.0, maxLight: 76.9, concentration: 7.0 },
-    { minLight: 73.0, maxLight: 74.9, concentration: 6.0 },
-    { minLight: 71.0, maxLight: 72.9, concentration: 5.0 },
-    { minLight: 69.0, maxLight: 70.9, concentration: 4.0 },
-    { minLight: 67.5, maxLight: 68.9, concentration: 3.0 },
-    { minLight: 66.0, maxLight: 67.4, concentration: 2.0 },
-    { minLight: 64.0, maxLight: 65.9, concentration: 1.0 }
+    { light: 83.6, concentration: 10.0 },
+    { light: 81.7, concentration: 9.0 },
+    { light: 79.8, concentration: 8.0 },
+    { light: 77.98, concentration: 7.0 },
+    { light: 76, concentration: 6.0 },
+    { light: 74.2, concentration: 5.0 },
+    { light: 72.3, concentration: 4.0 },
+    { light: 70.4, concentration: 3.0 },
+    { light: 68.5, concentration: 2.0 },
+    { light: 66.6, concentration: 1.0 },
+    { light: 66.4, concentration: 0.9 },
+    { light: 66.2, concentration: 0.8 },
+    { light: 66, concentration: 0.7 },
+    { light: 65.8, concentration: 0.6 },
+    { light: 65.7, concentration: 0.5 },
+    { light: 65.5, concentration: 0.4 },
+    { light: 65.3, concentration: 0.3 },
+    { light: 65.1, concentration: 0.2 },
+    { light: 64.99, concentration: 0.1 }
   ],
   paper: [
-    { minLight: 101.0, maxLight: 200.0, concentration: 10.0 }, // กำหนดช่วง 80 - 90
-    { minLight: 90.0, maxLight: 100, concentration: 1.0 },,
-    { minLight: 80.0, maxLight: 89, concentration: 0.1 }
+    { light: 84, concentration: 10.0 },
+    { light: 83.2, concentration: 9.0 },
+    { light: 82.4, concentration: 8.0 },
+    { light: 81.6, concentration: 7.0 },
+    { light: 80.8, concentration: 6.0 },
+    { light: 80.1, concentration: 5.0 },
+    { light: 79.3, concentration: 4.0 },
+    { light: 78.5, concentration: 3.0 },
+    { light: 77.7, concentration: 2.0 },
+    { light: 76.9, concentration: 1.0 },
+    { light: 76.8, concentration: 0.9 },
+    { light: 76.7, concentration: 0.8 },
+    { light: 76.5, concentration: 0.7 },
+    { light: 76.4, concentration: 0.6 },
+    { light: 76.4, concentration: 0.5 },
+    { light: 76.3, concentration: 0.4 },
+    { light: 76.3, concentration: 0.3 },
+    { light: 76.3, concentration: 0.2 },
+    { light: 76.2, concentration: 0.1 }
   ],
   solution: [
-    { minLight: 80.0, maxLight: 90.0, concentration: 10.0 }, // กำหนดช่วง 80 - 90
-    { minLight: 75.0, maxLight: 79.9, concentration: 9.0 },
-    { minLight: 70.0, maxLight: 74.9, concentration: 8.0 },
-    { minLight: 65.0, maxLight: 69.9, concentration: 7.0 },
-    { minLight: 60.0, maxLight: 64.9, concentration: 6.0 },
-    { minLight: 55.0, maxLight: 59.9, concentration: 5.0 },
-    { minLight: 50.0, maxLight: 54.9, concentration: 4.0 },
-    { minLight: 45.0, maxLight: 49.9, concentration: 3.0 },
-    { minLight: 40.0, maxLight: 44.9, concentration: 2.0 },
-    { minLight: 35.0, maxLight: 39.9, concentration: 1.0 }
+    { light: 99.3, concentration: 10.0 },
+    { light: 98.6, concentration: 9.0 },
+    { light: 97.9, concentration: 8.0 },
+    { light: 97.2, concentration: 7.0 },
+    { light: 96.5, concentration: 6.0 },
+    { light: 95.8, concentration: 5.0 },
+    { light: 95.1, concentration: 4.0 },
+    { light: 94.4, concentration: 3.0 },
+    { light: 93.8, concentration: 2.0 },
+    { light: 93.7, concentration: 1.0 },
+    { light: 93, concentration: 0.9 },
+    { light: 92.9, concentration: 0.8 },
+    { light: 92.8, concentration: 0.7 },
+    { light: 92.7, concentration: 0.6 },
+    { light: 92.7, concentration: 0.5 },
+    { light: 92.6, concentration: 0.4 },
+    { light: 92.5, concentration: 0.3 },
+    { light: 92.4, concentration: 0.2 },
+    { light: 92.3, concentration: 0.1 }
   ]
 };
 
@@ -215,35 +244,22 @@ function autoAnalyze() {
   ctx.fillStyle = "red";
   ctx.fill();
 
+  // แสดงผลค่าแสงและค่าความเข้มข้น
   document.getElementById("light").innerHTML = "ค่าแสง : " + brightness.toFixed(2);
-  document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration;
+  document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration + "%";
 }
 
-// ฟังก์ชันหาความเข้มข้นจากช่วงค่าแสง
 function findClosestConcentration(lightValue) {
   const database = databases[currentType];
-
-  // 1. ตรวจสอบว่าค่าแสงที่ได้ ตกอยู่ในช่วง minLight ถึง maxLight ของตัวไหนหรือไม่
-  for (let i = 0; i < database.length; i++) {
-    if (lightValue >= database[i].minLight && lightValue <= database[i].maxLight) {
-      return database[i].concentration + "%";
-    }
-  }
-
-  // 2. กรณีที่ค่าแสงหลุดจากทุกช่วง ให้เลือกช่วงที่ค่าแสงใกล้เคียงที่สุด
   let closest = database[0];
-  let minDiff = Infinity;
 
-  for (let i = 0; i < database.length; i++) {
-    const midPoint = (database[i].minLight + database[i].maxLight) / 2;
-    const diff = Math.abs(midPoint - lightValue);
-    if (diff < minDiff) {
-      minDiff = diff;
+  for (let i = 1; i < database.length; i++) {
+    if (Math.abs(database[i].light - lightValue) < Math.abs(closest.light - lightValue)) {
       closest = database[i];
     }
   }
 
-  return closest.concentration + "%";
+  return closest.concentration;
 }
 </script>
 </body>
