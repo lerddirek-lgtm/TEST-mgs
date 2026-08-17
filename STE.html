@@ -79,7 +79,7 @@ canvas {
   accept="image/*"
   onchange="loadImage(event)">
 
-<p class="small">ระบบจะคำนวณค่าสีและความเข้มข้นจากภาพทั้งหมดโดยอัตโนมัติ</p>
+<p class="small">จัดตำแหน่งกระดาษ/ตัวอย่างให้อยู่ภายในกรอบสีเขียวตรงกลางภาพ</p>
 
 <canvas id="canvas" width="340" height="255"></canvas>
 
@@ -200,7 +200,7 @@ function selectType(type) {
   document.getElementById("selectedType").innerHTML = "ประเภทที่เลือก : " + names[type];
   
   if (currentImage) {
-    analyzeWholeImage();
+    analyzeCenterArea();
   }
 }
 
@@ -211,20 +211,28 @@ function loadImage(event) {
   const img = new Image();
 
   img.onload = function() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     currentImage = img;
-
-    analyzeWholeImage();
+    analyzeCenterArea();
   };
 
   img.src = URL.createObjectURL(file);
 }
 
-function analyzeWholeImage() {
+function analyzeCenterArea() {
   if (!currentImage) return;
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // 1. วาดรูปภาพต้นฉบับลงบน Canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+
+  // 2. กำหนดขนาดพื้นที่กรอบตรงกลางสำหรับวัดสี
+  const boxWidth = 120;
+  const boxHeight = 80;
+  const startX = (canvas.width - boxWidth) / 2;
+  const startY = (canvas.height - boxHeight) / 2;
+
+  // 3. ดึงข้อมูลพิกเซลเฉพาะภายในกรอบสี่เหลี่ยม
+  const imageData = ctx.getImageData(startX, startY, boxWidth, boxHeight);
   const data = imageData.data;
 
   let totalR = 0;
@@ -243,13 +251,18 @@ function analyzeWholeImage() {
   const avgG = totalG / pixels;
   const avgB = totalB / pixels;
 
-  // คำนวณความสว่าง (Brightness / Lightness)
+  // คำนวณความสว่าง (Brightness)
   const brightness = (0.299 * avgR) + (0.587 * avgG) + (0.114 * avgB);
 
   // ค้นหาค่าความเข้มข้นที่ใกล้เคียงที่สุดจากฐานข้อมูล
   const concentration = findClosestConcentration(brightness);
 
-  // แสดงผลค่าแสงและค่าความเข้มข้น (ปัดทศนิยม 2 ตำแหน่งให้ดูง่าย)
+  // 4. วาดกรอบสีเขียวแสดงขอบเขตที่ทำการวิเคราะห์กระดาษ
+  ctx.strokeStyle = "#00FF00";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(startX, startY, boxWidth, boxHeight);
+
+  // แสดงผลค่าแสงและค่าความเข้มข้น
   document.getElementById("lightVal").innerHTML = "ค่าแสง (Light Value) : " + brightness.toFixed(2);
   document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration + "%";
 }
