@@ -94,6 +94,7 @@ video, canvas {
 <canvas id="canvas" width="340" height="255"></canvas>
 
 <div class="result">
+  <p id="light">ค่าแสง : -</p>
   <p id="conc">ความเข้มข้น : -</p>
 </div>
 
@@ -183,7 +184,6 @@ function selectType(type) {
   };
   document.getElementById("selectedType").innerHTML = "ประเภทที่เลือก : " + names[type];
   
-  // หากมีรูปโหลดอยู่แล้ว ให้ทำการคำนวณใหม่เมื่อเปลี่ยนประเภท
   if (currentImage) {
     autoAnalyze();
   }
@@ -201,18 +201,15 @@ function loadImage(event) {
   img.src = URL.createObjectURL(file);
 }
 
-// ฟังก์ชันวิเคราะห์จุดกลางภาพอัตโนมัติ
 function autoAnalyze() {
   if (!currentImage) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
 
-  // กำหนดจุดตรวจจับตรงกึ่งกลางภาพ
   const autoX = Math.round(canvas.width / 2);
   const autoY = Math.round(canvas.height / 2);
 
-  // ลดขนาดพื้นที่สุ่มตัวอย่างลงเหลือขนาดเล็ก (20x20 พิกเซล)
   const sampleSize = 20;
   const half = sampleSize / 2;
 
@@ -238,7 +235,6 @@ function autoAnalyze() {
   const brightness = (0.299 * avgR) + (0.587 * avgG) + (0.114 * avgB);
   const concentration = findClosestConcentration(brightness);
 
-  // วาดกรอบเล็กๆ และจุดสีแดงแสดงตำแหน่งกึ่งกลางที่ถูกเลือก
   ctx.strokeStyle = "red";
   ctx.lineWidth = 2;
   ctx.strokeRect(startX, startY, sampleSize, sampleSize);
@@ -248,6 +244,8 @@ function autoAnalyze() {
   ctx.fillStyle = "red";
   ctx.fill();
 
+  // แสดงผลค่าแสงและค่าความเข้มข้น
+  document.getElementById("light").innerHTML = "ค่าแสง : " + brightness.toFixed(2);
   document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration + "%";
 }
 
