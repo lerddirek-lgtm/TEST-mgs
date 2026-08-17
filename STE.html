@@ -18,12 +18,12 @@ button, input, select {
   margin: 6px;
   font-size: 16px;
 }
-canvas {
+video, canvas {
   width: 340px;
   max-width: 95%;
   border: 2px solid #999;
   border-radius: 12px;
-  background: white;
+  background: black;
 }
 .result {
   background: white;
@@ -79,7 +79,7 @@ canvas {
   accept="image/*"
   onchange="loadImage(event)">
 
-<p class="small">จัดตำแหน่งกระดาษ/ตัวอย่างให้อยู่ภายในกรอบสีเขียวตรงกลางภาพ</p>
+<p class="small">หลังถ่ายหรือเลือกรูปแล้ว ให้แตะบริเวณสีที่ต้องการวัด</p>
 
 <canvas id="canvas" width="340" height="255"></canvas>
 
@@ -93,6 +93,12 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 let currentImage = null;
+let selectedX = null;
+let selectedY = null;
+
+// เก็บพารามิเตอร์การวาดภาพเพื่อรักษาสัดส่วน
+let imgDraw = { x: 0, y: 0, w: 0, h: 0 };
+
 let currentType = "stick";
 
 const databases = {
@@ -198,9 +204,10 @@ function selectType(type) {
     solution: "สารละลายทดสอบ"
   };
   document.getElementById("selectedType").innerHTML = "ประเภทที่เลือก : " + names[type];
-  
-  if (currentImage) {
-    analyzeCenterArea();
+
+  // คำนวณใหม่หากมีตำแหน่งที่เลือกไว้อยู่แล้ว
+  if (selectedX !== null && selectedY !== null) {
+    analyzeSelectedArea(selectedX, selectedY);
   }
 }
 
@@ -212,42 +219,78 @@ function loadImage(event) {
 
   img.onload = function() {
     currentImage = img;
-    analyzeCenterArea();
+    selectedX = null;
+    selectedY = null;
+    drawScaledImage();
+
+    document.getElementById("lightVal").innerHTML = "ค่าแสง (Light Value) : -";
+    document.getElementById("conc").innerHTML = "เลือกรูปแล้ว กรุณาแตะจุดที่ต้องการวัด";
   };
 
   img.src = URL.createObjectURL(file);
 }
 
-function analyzeCenterArea() {
-  if (!currentImage) return;
-
-  // 1. เคลียร์ Canvas ด้วยสีดำก่อน
+// ฟังก์ชันวาดภาพโดยคงสัดส่วนเดิม (ไม่บีบภาพ)
+function drawScaledImage() {
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 2. คำนวณ Scale เพื่อรักษาอัตราส่วนรูปภาพต้นฉบับ (ไม่ให้ภาพโดนบีบ)
+  if (!currentImage) return;
+
   const hRatio = canvas.width / currentImage.width;
   const vRatio = canvas.height / currentImage.height;
   const ratio = Math.min(hRatio, vRatio);
 
-  const centerShift_x = (canvas.width - currentImage.width * ratio) / 2;
-  const centerShift_y = (canvas.height - currentImage.height * ratio) / 2;
+  imgDraw.w = currentImage.width * ratio;
+  imgDraw.h = currentImage.height * ratio;
+  imgDraw.x = (canvas.width - imgDraw.w) / 2;
+  imgDraw.y = (canvas.height - imgDraw.h) / 2;
 
-  // 3. วาดภาพลง Canvas แบบรักษาสัดส่วน
   ctx.drawImage(
     currentImage,
     0, 0, currentImage.width, currentImage.height,
-    centerShift_x, centerShift_y, currentImage.width * ratio, currentImage.height * ratio
+    imgDraw.x, imgDraw.y, imgDraw.w, imgDraw.h
   );
+}
 
-  // 4. กำหนดขนาดพื้นที่กรอบตรงกลางสำหรับวัดสี
-  const boxWidth = 120;
-  const boxHeight = 80;
-  const startX = (canvas.width - boxWidth) / 2;
-  const startY = (canvas.height - boxHeight) / 2;
+// แตะหรือคลิกบนรูปเพื่อเลือกตำแหน่งวัดสี
+canvas.addEventListener("click", function(event) {
+  handleInput(event.clientX, event.clientY);
+});
 
-  // 5. ดึงข้อมูลพิกเซลเฉพาะภายในกรอบสี่เหลี่ยม
-  const imageData = ctx.getImageData(startX, startY, boxWidth, boxHeight);
+canvas.addEventListener("touchstart", function(event) {
+  event.preventDefault();
+  const touch = event.touches[0];
+  handleInput(touch.clientX, touch.clientY);
+});
+
+function handleInput(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round((clientX - rect.left) * (canvas.width / rect.width));
+  const y = Math.round((clientY - rect.top) * (canvas.height / rect.height));
+
+  selectedX = x;
+  selectedY = y;
+  analyzeSelectedArea(selectedX, selectedY);
+}
+
+function analyzeSelectedArea(x, y) {
+  drawScaledImage();
+
+  const sampleSize = 30;
+  const half = sampleSize / 2;
+
+  let startX = Math.max(0, x - half);
+  let startY = Math.max(0, y - half);
+
+  if (startX + sampleSize > canvas.width) {
+    startX = canvas.width - sampleSize;
+  }
+  if (startY + sampleSize > canvas.height) {
+    startY = canvas.height - sampleSize;
+  }
+
+  const imageData = ctx.getImageData(startX, startY, sampleSize, sampleSize);
   const data = imageData.data;
 
   let totalR = 0;
@@ -266,18 +309,19 @@ function analyzeCenterArea() {
   const avgG = totalG / pixels;
   const avgB = totalB / pixels;
 
-  // คำนวณความสว่าง (Brightness)
   const brightness = (0.299 * avgR) + (0.587 * avgG) + (0.114 * avgB);
-
-  // ค้นหาค่าความเข้มข้นที่ใกล้เคียงที่สุดจากฐานข้อมูล
   const concentration = findClosestConcentration(brightness);
 
-  // 6. วาดกรอบสีเขียวแสดงขอบเขตที่ทำการวิเคราะห์
-  ctx.strokeStyle = "#00FF00";
+  // วาดกรอบตรงบริเวณที่เลือก
+  ctx.strokeStyle = "red";
   ctx.lineWidth = 3;
-  ctx.strokeRect(startX, startY, boxWidth, boxHeight);
+  ctx.strokeRect(startX, startY, sampleSize, sampleSize);
 
-  // แสดงผลค่าแสงและค่าความเข้มข้น
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, 2 * Math.PI);
+  ctx.fillStyle = "red";
+  ctx.fill();
+
   document.getElementById("lightVal").innerHTML = "ค่าแสง (Light Value) : " + brightness.toFixed(2);
   document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration + "%";
 }
