@@ -23,7 +23,7 @@ video, canvas {
   max-width: 95%;
   border: 2px solid #999;
   border-radius: 12px;
-  background: black;
+  background: #222;
 }
 .result {
   background: white;
@@ -79,7 +79,7 @@ video, canvas {
   accept="image/*"
   onchange="loadImage(event)">
 
-<p class="small">หลังถ่ายหรือเลือกรูปแล้ว ให้แตะบริเวณสีที่ต้องการวัด</p>
+<p class="small">ถ่ายหรือเลือกรูปภาพกระดาษทดสอบ จากนั้นแตะบริเวณจุดสีที่ต้องการวัด</p>
 
 <canvas id="canvas" width="340" height="255"></canvas>
 
@@ -95,9 +95,6 @@ const ctx = canvas.getContext("2d");
 let currentImage = null;
 let selectedX = null;
 let selectedY = null;
-
-// เก็บพารามิเตอร์การวาดภาพเพื่อรักษาสัดส่วน
-let imgDraw = { x: 0, y: 0, w: 0, h: 0 };
 
 let currentType = "stick";
 
@@ -143,7 +140,7 @@ const databases = {
     { light: 82.4, concentration: 8.0 },
     { light: 81.6, concentration: 7.0 },
     { light: 80.8, concentration: 6.0 },
-    { light: 167.67, concentration: 5.0 },
+    { light: 109.86, concentration: 5.0 },
     { light: 108.86, concentration: 5.0 },
     { light: 110.87, concentration: 5.0 },
     { light: 109.86, concentration: 5.0 },
@@ -205,7 +202,6 @@ function selectType(type) {
   };
   document.getElementById("selectedType").innerHTML = "ประเภทที่เลือก : " + names[type];
 
-  // คำนวณใหม่หากมีตำแหน่งที่เลือกไว้อยู่แล้ว
   if (selectedX !== null && selectedY !== null) {
     analyzeSelectedArea(selectedX, selectedY);
   }
@@ -221,7 +217,7 @@ function loadImage(event) {
     currentImage = img;
     selectedX = null;
     selectedY = null;
-    drawScaledImage();
+    drawFocusedImage();
 
     document.getElementById("lightVal").innerHTML = "ค่าแสง (Light Value) : -";
     document.getElementById("conc").innerHTML = "เลือกรูปแล้ว กรุณาแตะจุดที่ต้องการวัด";
@@ -230,26 +226,23 @@ function loadImage(event) {
   img.src = URL.createObjectURL(file);
 }
 
-// ฟังก์ชันวาดภาพโดยคงสัดส่วนเดิม (ไม่บีบภาพ)
-function drawScaledImage() {
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+// ฟังก์ชันวาดภาพแบบโฟกัสจุดกลาง (Cover / Focus Crop) เพื่อไม่ให้ภาพบีบและขยายเต็มกรอบ
+function drawFocusedImage() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!currentImage) return;
 
   const hRatio = canvas.width / currentImage.width;
   const vRatio = canvas.height / currentImage.height;
-  const ratio = Math.min(hRatio, vRatio);
+  const ratio = Math.max(hRatio, vRatio); // ใช้ Math.max เพื่อขยายภาพให้ครอบคลุมเต็ม Canvas
 
-  imgDraw.w = currentImage.width * ratio;
-  imgDraw.h = currentImage.height * ratio;
-  imgDraw.x = (canvas.width - imgDraw.w) / 2;
-  imgDraw.y = (canvas.height - imgDraw.h) / 2;
+  const centerShift_x = (canvas.width - currentImage.width * ratio) / 2;
+  const centerShift_y = (canvas.height - currentImage.height * ratio) / 2;
 
   ctx.drawImage(
     currentImage,
     0, 0, currentImage.width, currentImage.height,
-    imgDraw.x, imgDraw.y, imgDraw.w, imgDraw.h
+    centerShift_x, centerShift_y, currentImage.width * ratio, currentImage.height * ratio
   );
 }
 
@@ -275,7 +268,7 @@ function handleInput(clientX, clientY) {
 }
 
 function analyzeSelectedArea(x, y) {
-  drawScaledImage();
+  drawFocusedImage();
 
   const sampleSize = 30;
   const half = sampleSize / 2;
@@ -312,7 +305,7 @@ function analyzeSelectedArea(x, y) {
   const brightness = (0.299 * avgR) + (0.587 * avgG) + (0.114 * avgB);
   const concentration = findClosestConcentration(brightness);
 
-  // วาดกรอบตรงบริเวณที่เลือก
+  // วาดกรอบและจุดแดงตรงบริเวณที่เลือก
   ctx.strokeStyle = "red";
   ctx.lineWidth = 3;
   ctx.strokeRect(startX, startY, sampleSize, sampleSize);
