@@ -221,17 +221,32 @@ function loadImage(event) {
 function analyzeCenterArea() {
   if (!currentImage) return;
 
-  // 1. วาดรูปภาพต้นฉบับลงบน Canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+  // 1. เคลียร์ Canvas ด้วยสีดำก่อน
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 2. กำหนดขนาดพื้นที่กรอบตรงกลางสำหรับวัดสี
+  // 2. คำนวณ Scale เพื่อรักษาอัตราส่วนรูปภาพต้นฉบับ (ไม่ให้ภาพโดนบีบ)
+  const hRatio = canvas.width / currentImage.width;
+  const vRatio = canvas.height / currentImage.height;
+  const ratio = Math.min(hRatio, vRatio);
+
+  const centerShift_x = (canvas.width - currentImage.width * ratio) / 2;
+  const centerShift_y = (canvas.height - currentImage.height * ratio) / 2;
+
+  // 3. วาดภาพลง Canvas แบบรักษาสัดส่วน
+  ctx.drawImage(
+    currentImage,
+    0, 0, currentImage.width, currentImage.height,
+    centerShift_x, centerShift_y, currentImage.width * ratio, currentImage.height * ratio
+  );
+
+  // 4. กำหนดขนาดพื้นที่กรอบตรงกลางสำหรับวัดสี
   const boxWidth = 120;
   const boxHeight = 80;
   const startX = (canvas.width - boxWidth) / 2;
   const startY = (canvas.height - boxHeight) / 2;
 
-  // 3. ดึงข้อมูลพิกเซลเฉพาะภายในกรอบสี่เหลี่ยม
+  // 5. ดึงข้อมูลพิกเซลเฉพาะภายในกรอบสี่เหลี่ยม
   const imageData = ctx.getImageData(startX, startY, boxWidth, boxHeight);
   const data = imageData.data;
 
@@ -257,7 +272,7 @@ function analyzeCenterArea() {
   // ค้นหาค่าความเข้มข้นที่ใกล้เคียงที่สุดจากฐานข้อมูล
   const concentration = findClosestConcentration(brightness);
 
-  // 4. วาดกรอบสีเขียวแสดงขอบเขตที่ทำการวิเคราะห์กระดาษ
+  // 6. วาดกรอบสีเขียวแสดงขอบเขตที่ทำการวิเคราะห์
   ctx.strokeStyle = "#00FF00";
   ctx.lineWidth = 3;
   ctx.strokeRect(startX, startY, boxWidth, boxHeight);
