@@ -111,7 +111,7 @@ let currentType = "stick";
 
 const databases = {
   stick: [
-    { light: 83.6, concentration: 0.1 },
+    { light: 83.6, concentration: 0.2 },
     { light: 170.7, concentration: 0.1 },
     { light: 79.8, concentration: 8.0 },
     { light: 77.98, concentration: 7.0 },
@@ -231,7 +231,7 @@ function autoAnalyze() {
   ctx.fill();
 
   // แสดงผลค่าแสงและค่าความเข้มข้น
-  document.getElementById("light").innerHTML = "ค่าแสง : " + brightness.toFixed(2);
+  
   document.getElementById("conc").innerHTML = "ความเข้มข้น : " + concentration + "%";
 }
 
